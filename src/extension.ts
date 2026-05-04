@@ -39,6 +39,8 @@ import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
 
 export function activate(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(outputChannel);
+
     // Debug logging
     outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
     outputChannel.appendLine('Registering completion providers...');
@@ -80,8 +82,9 @@ export function activate(context: vscode.ExtensionContext): void {
         outputChannel.appendLine(`Failed to check MCP installation: ${err}`);
     });
 
-    // Apply color customizations programmatically
-    applyColorCustomizations();
+    if (vscode.workspace.getConfiguration('elasticDocs').get<boolean>('applyTokenColorCustomizations', false)) {
+        applyColorCustomizations();
+    }
 
     // Test grammar loading
     testGrammarLoading();
@@ -251,6 +254,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 updateDiagnostics(document);
             } catch (err) {
                 outputChannel.appendLine(`Error updating diagnostics on document open: ${err}`);
+            }
+        })
+    );
+
+    // Keep diagnostics current while authors type without running validation on every keystroke.
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(event => {
+            try {
+                updateDiagnostics(event.document);
+            } catch (err) {
+                outputChannel.appendLine(`Error updating diagnostics on document change: ${err}`);
             }
         })
     );

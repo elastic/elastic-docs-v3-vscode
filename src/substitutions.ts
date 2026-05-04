@@ -23,13 +23,10 @@ import { PRODUCTS } from './products';
 import { performanceLogger } from './performanceLogger';
 import { VersionsCache } from './versionsCache';
 import { pathUtils, existsSync, readFileSync, isDirectorySync, isWeb, readFile } from './fileSystem';
+import { extractStringRecordField } from './yaml';
 
 interface SubstitutionVariables {
     [key: string]: string;
-}
-
-interface ParsedYaml {
-    [key: string]: unknown;
 }
 
 // Centralized cache for substitutions
@@ -98,15 +95,10 @@ async function doInitializeWeb(): Promise<void> {
             try {
                 outputChannel.appendLine(`[Substitutions] Pre-loading: ${docsetUri.toString()}`);
                 const content = await readFile(docsetUri);
-                const parsed = parseYaml(content);
-                
-                if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
-                    const subs = parsed.subs;
-                    if (typeof subs === 'object' && subs !== null) {
-                        const result = subs as SubstitutionVariables;
-                        preloadedDocsets.set(docsetUri.fsPath, result);
-                        outputChannel.appendLine(`[Substitutions] Loaded ${Object.keys(result).length} substitutions from ${docsetUri.fsPath}`);
-                    }
+                const result = extractStringRecordField(content, 'subs');
+                if (Object.keys(result).length > 0) {
+                    preloadedDocsets.set(docsetUri.fsPath, result);
+                    outputChannel.appendLine(`[Substitutions] Loaded ${Object.keys(result).length} substitutions from ${docsetUri.fsPath}`);
                 }
             } catch (error) {
                 outputChannel.appendLine(`[Substitutions] Error loading ${docsetUri.toString()}: ${error}`);
@@ -338,20 +330,7 @@ function parseDocsetFile(filePath: string): SubstitutionVariables {
                 }
 
                 const content = readFileSync(filePath);
-                const parsed = parseYaml(content);
-
-                if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
-                    const subs = parsed.subs;
-
-                    // The subs section is already properly parsed as key-value pairs
-                    if (typeof subs === 'object' && subs !== null) {
-                        const result = subs as SubstitutionVariables;
-                        return result;
-                    }
-                    return subs as unknown as SubstitutionVariables;
-                }
-
-                return {};
+                return extractStringRecordField(content, 'subs');
             } catch (error) {
                 outputChannel.appendLine(`Error parsing docset file ${filePath}: ${error}`);
                 return {};
@@ -391,61 +370,5 @@ function extractSubsFromFrontmatter(content: string): SubstitutionVariables {
         return {};
     }
 
-    const frontmatter = frontmatterMatch[1];
-    const parsed = parseYaml(frontmatter);
-
-    // Check for 'sub:' field in frontmatter
-    if (parsed && typeof parsed === 'object' && 'sub' in parsed) {
-        const sub = parsed.sub;
-        if (typeof sub === 'object' && sub !== null) {
-            return sub as SubstitutionVariables;
-        }
-    }
-
-    return {};
-}
-
-function parseYaml(content: string): ParsedYaml {
-    // Simple YAML parser for the specific structure we need
-    const lines = content.split('\n');
-    const result: ParsedYaml = {};
-    let currentSection: ParsedYaml | null = null;
-    let currentIndent = 0;
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-
-        const indent = line.length - line.trimStart().length;
-
-        // Check for both 'subs:' (docset.yml) and 'sub:' (frontmatter)
-        if (trimmed === 'subs:') {
-            result.subs = {};
-            currentSection = result.subs as ParsedYaml;
-            currentIndent = indent;
-            continue;
-        }
-
-        if (trimmed === 'sub:') {
-            result.sub = {};
-            currentSection = result.sub as ParsedYaml;
-            currentIndent = indent;
-            continue;
-        }
-
-        if (currentSection && indent > currentIndent) {
-            // This is a key-value pair in the subs/sub section
-            const colonIndex = trimmed.indexOf(':');
-            if (colonIndex > 0) {
-                const key = trimmed.substring(0, colonIndex).trim();
-                const value = trimmed.substring(colonIndex + 1).trim();
-
-                // Remove quotes if present
-                const cleanValue = value.replace(/^["']|["']$/g, '');
-                currentSection[key] = cleanValue;
-            }
-        }
-    }
-
-    return result;
+    return extractStringRecordField(frontmatterMatch[1], 'sub');
 }
