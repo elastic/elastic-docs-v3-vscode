@@ -59,7 +59,7 @@ jobs:
           echo "📋 Package details:"
           ls -lh test-package.vsix
           echo "🔍 Package contents:"
-          vsce ls
+          npm exec -- vsce ls
           
       - name: Upload test package as artifact
         uses: actions/upload-artifact@v4
