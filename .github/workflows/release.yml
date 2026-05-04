@@ -44,11 +44,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Run tests
+        run: npm test
+
       - name: Compile TypeScript
         run: npm run compile
-        
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
+
+      - name: Verify package contents
+        run: npm run package:verify
         
       - name: Get version from tag or package.json
         id: get_version
@@ -82,7 +85,7 @@ jobs:
           echo "packageName=$PACKAGE_NAME" >> $GITHUB_OUTPUT
         
       - name: Package extension
-        run: vsce package --out ${{ steps.setup.outputs.packageName }}
+        run: npm run package -- --out ${{ steps.setup.outputs.packageName }}
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

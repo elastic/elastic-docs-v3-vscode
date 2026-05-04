@@ -19,5 +19,33 @@
 
 import * as vscode from 'vscode';
 
-// Create output channel for logging
-export const outputChannel = vscode.window.createOutputChannel('Elastic Docs V3');
+const channel = vscode.window.createOutputChannel('Elastic Docs V3');
+
+function getBooleanSetting(name: string, defaultValue: boolean): boolean {
+    return vscode.workspace.getConfiguration('elasticDocs').get<boolean>(name, defaultValue);
+}
+
+export function isDebugLoggingEnabled(): boolean {
+    return getBooleanSetting('debugLogging', false);
+}
+
+export function isPerformanceLoggingEnabled(): boolean {
+    return getBooleanSetting('performanceLogging', false);
+}
+
+// Most extension logging is diagnostic noise, so keep it opt-in for users.
+export const outputChannel = {
+    appendLine(value: string): void {
+        if (isDebugLoggingEnabled()) {
+            channel.appendLine(value);
+        }
+    },
+
+    show(): void {
+        channel.show();
+    },
+
+    dispose(): void {
+        channel.dispose();
+    }
+};

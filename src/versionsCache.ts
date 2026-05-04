@@ -18,9 +18,8 @@
  */
 
 import { outputChannel } from './logger';
-
-// Detect if we're running in a web environment
-const isWeb = typeof process === 'undefined' || typeof process.versions === 'undefined' || typeof process.versions.node === 'undefined';
+import { isWeb } from './fileSystem';
+import { extractVersionSubstitutions } from './yaml';
 
 const VERSIONS_URL = 'https://raw.githubusercontent.com/elastic/docs-builder/main/config/versions.yml';
 const CACHE_DURATION_MS = 1000 * 60 * 60; // 1 hour
@@ -36,14 +35,6 @@ export class VersionsCache {
     private versions: Record<string, string> = {};
     private lastFetchTime: number = 0;
     private fetchPromise: Promise<void> | null = null;
-
-    /**
-     * Normalize version key by converting hyphens to underscores.
-     * This allows versions.yml keys like "edot-collector" to be accessed as "edot_collector".
-     */
-    private normalizeKey(key: string): string {
-        return key.replace(/-/g, '_');
-    }
 
     private constructor() {}
 
@@ -188,122 +179,7 @@ export class VersionsCache {
      *   self: *stack
      */
     private parseSimpleYaml(content: string): Record<string, string> {
-        const lines = content.split('\n');
-        const versions: Record<string, string> = {};
-        const anchors: Record<string, { base: string; current: string }> = {};
-        let inVersioningSystems = false;
-        let currentProduct: string | null = null;
-        let currentAnchor: string | null = null;
-        let baseIndent = 0;
-        let currentVersionData: { base?: string; current?: string } = {};
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            // Skip empty lines and comments
-            if (!trimmed || trimmed.startsWith('#')) {
-                continue;
-            }
-
-            const indent = line.length - line.trimStart().length;
-
-            // Check if we're entering versioning_systems section
-            if (trimmed === 'versioning_systems:') {
-                inVersioningSystems = true;
-                baseIndent = indent;
-                continue;
-            }
-
-            if (!inVersioningSystems) {
-                continue;
-            }
-
-            // Parse product entries (one level deeper than versioning_systems)
-            if (indent === baseIndent + 2 && trimmed.includes(':')) {
-                // Save previous product's version data if it has an anchor
-                if (currentProduct && currentAnchor && currentVersionData.current) {
-                    anchors[currentAnchor] = {
-                        base: currentVersionData.base || '',
-                        current: currentVersionData.current
-                    };
-                }
-
-                // Save previous product's version data (both current and base)
-                if (currentProduct && currentVersionData.current) {
-                    const normalizedKey = this.normalizeKey(currentProduct);
-                    versions[normalizedKey] = currentVersionData.current;
-                    if (currentVersionData.base) {
-                        versions[`${normalizedKey}.base`] = currentVersionData.base;
-                    }
-                }
-
-                const colonIndex = trimmed.indexOf(':');
-                const key = trimmed.substring(0, colonIndex).trim();
-                const value = trimmed.substring(colonIndex + 1).trim();
-
-                currentProduct = key;
-                currentAnchor = null;
-                currentVersionData = {};
-
-                // Check if this product has an anchor definition (e.g., "stack: &stack")
-                if (value.startsWith('&')) {
-                    currentAnchor = value.substring(1).trim();
-                    continue;
-                }
-
-                // Check if this product is an alias reference (e.g., "self: *stack")
-                if (value.startsWith('*')) {
-                    const aliasName = value.substring(1).trim();
-                    if (anchors[aliasName]) {
-                        const normalizedKey = this.normalizeKey(currentProduct);
-                        versions[normalizedKey] = anchors[aliasName].current;
-                        if (anchors[aliasName].base) {
-                            versions[`${normalizedKey}.base`] = anchors[aliasName].base;
-                        }
-                    }
-                    currentProduct = null;
-                    continue;
-                }
-
-                // Regular product entry (no anchor or alias)
-                continue;
-            }
-
-            // Parse version fields (current, base) under each product
-            if (currentProduct && indent > baseIndent + 2 && trimmed.includes(':')) {
-                const colonIndex = trimmed.indexOf(':');
-                const field = trimmed.substring(0, colonIndex).trim();
-                const value = trimmed.substring(colonIndex + 1).trim();
-
-                const cleanValue = value.replace(/^["']|["']$/g, '');
-
-                if (field === 'current') {
-                    currentVersionData.current = cleanValue;
-                } else if (field === 'base') {
-                    currentVersionData.base = cleanValue;
-                }
-            }
-        }
-
-        // Save last product's anchor if needed
-        if (currentProduct && currentAnchor && currentVersionData.current) {
-            anchors[currentAnchor] = {
-                base: currentVersionData.base || '',
-                current: currentVersionData.current
-            };
-        }
-
-        // Save last product's version data (both current and base)
-        if (currentProduct && currentVersionData.current) {
-            const normalizedKey = this.normalizeKey(currentProduct);
-            versions[normalizedKey] = currentVersionData.current;
-            if (currentVersionData.base) {
-                versions[`${normalizedKey}.base`] = currentVersionData.base;
-            }
-        }
-
-        return versions;
+        return extractVersionSubstitutions(content);
     }
 
     /**

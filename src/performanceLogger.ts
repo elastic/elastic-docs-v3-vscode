@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import { outputChannel } from './logger';
+import { isPerformanceLoggingEnabled, outputChannel } from './logger';
 
 interface PerformanceMetrics {
     operation: string;
@@ -29,11 +29,10 @@ interface PerformanceMetrics {
 
 class PerformanceLogger {
     private metrics: Map<string, PerformanceMetrics> = new Map();
-    private readonly ENABLE_PERFORMANCE_LOGGING = true; // Set to false to disable
     private readonly SLOW_OPERATION_THRESHOLD = 100; // milliseconds
 
     startTiming(operation: string, metadata?: Record<string, unknown>): void {
-        if (!this.ENABLE_PERFORMANCE_LOGGING) return;
+        if (!isPerformanceLoggingEnabled()) return;
 
         const startTime = Date.now();
         this.metrics.set(operation, {
@@ -44,7 +43,7 @@ class PerformanceLogger {
     }
 
     endTiming(operation: string): number | undefined {
-        if (!this.ENABLE_PERFORMANCE_LOGGING) return undefined;
+        if (!isPerformanceLoggingEnabled()) return undefined;
 
         const metric = this.metrics.get(operation);
         if (!metric) {
@@ -69,7 +68,7 @@ class PerformanceLogger {
     }
 
     logOperation(operation: string, duration: number, metadata?: Record<string, unknown>): void {
-        if (!this.ENABLE_PERFORMANCE_LOGGING) return;
+        if (!isPerformanceLoggingEnabled()) return;
 
         const metadataStr = metadata ? ` | ${JSON.stringify(metadata)}` : '';
         const level = duration > this.SLOW_OPERATION_THRESHOLD ? 'SLOW' : 'OK';

@@ -19,9 +19,7 @@
 
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
-
-// Detect if we're running in a web environment
-const isWeb = typeof process === 'undefined' || typeof process.versions === 'undefined' || typeof process.versions.node === 'undefined';
+import { isWeb } from './fileSystem';
 
 const VALE_RULES_REPO_URL = 'https://github.com/elastic/vale-rules';
 

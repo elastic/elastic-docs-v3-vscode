@@ -19,8 +19,7 @@
 
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
-
-const isWeb = typeof process === 'undefined' || typeof process.versions === 'undefined' || typeof process.versions.node === 'undefined';
+import { isWeb } from './fileSystem';
 
 const MCP_SERVER_URL = 'https://www.elastic.co/docs/_mcp/';
 const MCP_SERVER_NAME = 'elastic-docs';

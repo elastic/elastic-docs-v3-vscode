@@ -32,12 +32,15 @@ jobs:
         
       - name: Run linting
         run: npm run lint
+
+      - name: Run tests
+        run: npm test
         
       - name: Compile TypeScript
         run: npm run compile
-        
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
+
+      - name: Verify package contents
+        run: npm run package:verify
         
       # - name: Validate extension manifest
       #   run: |
@@ -48,7 +51,7 @@ jobs:
       - name: Test package creation
         run: |
           echo "📦 Testing extension packaging..."
-          vsce package --out test-package.vsix
+          npm run package -- --out test-package.vsix
           echo "✅ Package created successfully"
           
       - name: Verify package contents

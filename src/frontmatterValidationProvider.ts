@@ -22,6 +22,7 @@ import { frontmatterSchema } from './frontmatterSchema';
 import { performanceLogger } from './performanceLogger';
 import { validateAppliesToValue, parseVersion, parseVersionEntry } from './appliesToValidator';
 import { VersionsCache } from './versionsCache';
+import { parseYamlObject } from './yaml';
 
 interface SchemaProperty {
     type?: string;
@@ -130,127 +131,10 @@ export class FrontmatterValidationProvider {
         return performanceLogger.measureSync(
             'FrontmatterValidation.parseYaml',
             () => {
-                const result: Record<string, unknown> = {};
-                const stack: Array<{ obj: Record<string, unknown>; indent: number }> = [{ obj: result, indent: -1 }];
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    
-                    if (!line.trim()) {
-                        continue;
-                    }
-                    
-                    const indent = line.length - line.trimStart().length;
-                    const trimmed = line.trim();
-                    
-                    // Pop stack until we find the right parent
-                    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-                        stack.pop();
-                    }
-                    
-                    const parent = stack[stack.length - 1].obj;
-                    
-                    if (trimmed.startsWith('- ')) {
-                        // Array item - need to find the parent field and ensure it's an array
-                        const itemContent = trimmed.substring(2).trim();
-                        
-                        // We need to look in the parent of the current stack frame
-                        // The array items should be added to the parent that contains the field name
-                        let arrayParent = null;
-                        let arrayKey = null;
-                        
-                        // Walk up the stack to find where to put this array item
-                        for (let stackIdx = stack.length - 1; stackIdx >= 0; stackIdx--) {
-                            const stackFrame = stack[stackIdx];
-                            const keys = Object.keys(stackFrame.obj);
-                            
-                            for (let j = keys.length - 1; j >= 0; j--) {
-                                const key = keys[j];
-                                const value = stackFrame.obj[key];
-
-                                if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0) {
-                                    // This empty object should be converted to an array
-                                    stackFrame.obj[key] = [];
-                                    arrayParent = stackFrame.obj;
-                                    arrayKey = key;
-                                    break;
-                                } else if (Array.isArray(value)) {
-                                    // Already an array
-                                    arrayParent = stackFrame.obj;
-                                    arrayKey = key;
-                                    break;
-                                }
-                            }
-                            
-                            if (arrayKey) break;
-                        }
-                        
-                        if (arrayKey && arrayParent && Array.isArray(arrayParent[arrayKey])) {
-                            if (itemContent.includes(':')) {
-                                // Object in array - parse key-value pairs
-                                const obj: Record<string, unknown> = {};
-                                const colonIndex = itemContent.indexOf(':');
-                                const objKey = itemContent.substring(0, colonIndex).trim();
-                                const objValue = itemContent.substring(colonIndex + 1).trim();
-
-                                if (objValue !== '') {
-                                    obj[objKey] = this.parseValue(objValue);
-                                } else {
-                                    obj[objKey] = '';
-                                }
-
-                                (arrayParent[arrayKey] as unknown[]).push(obj);
-                                stack.push({ obj, indent });
-                            } else {
-                                // Simple value in array
-                                (arrayParent[arrayKey] as unknown[]).push(itemContent);
-                            }
-                        }
-                    } else if (trimmed.includes(':')) {
-                        // Key-value pair
-                        const colonIndex = trimmed.indexOf(':');
-                        const key = trimmed.substring(0, colonIndex).trim();
-                        const value = trimmed.substring(colonIndex + 1).trim();
-                        
-                        if (value === '') {
-                            // Object or array
-                            parent[key] = {};
-                            stack.push({ obj: parent[key] as Record<string, unknown>, indent });
-                        } else {
-                            // Simple value
-                            parent[key] = this.parseValue(value);
-                        }
-                    }
-                }
-                
-                return result;
+                return parseYamlObject(lines.join('\n'));
             },
             { lineCount: lines.length }
         );
-    }
-
-    private getLastArrayKey(obj: Record<string, unknown>): string | null {
-        const keys = Object.keys(obj);
-        for (let i = keys.length - 1; i >= 0; i--) {
-            if (Array.isArray(obj[keys[i]])) {
-                return keys[i];
-            }
-        }
-        return null;
-    }
-
-    private parseValue(value: string): string | number | boolean | null {
-        // Remove quotes
-        const unquoted = value.replace(/^["']|["']$/g, '');
-        
-        // Try to parse as number
-        const num = Number(unquoted);
-        if (!isNaN(num)) {
-            return num;
-        }
-        
-        // Return as string
-        return unquoted;
     }
 
     private validateFrontmatterData(data: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
