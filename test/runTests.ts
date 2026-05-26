@@ -105,6 +105,7 @@ versioning_systems:
 
             assert.strictEqual(new Set(iconNames).size, iconNames.length);
             assert.ok(iconNames.includes('analyze_event'));
+            assert.ok(iconNames.includes('line_break'));
             assert.ok(iconNames.includes('magnify_sparkles'));
             assert.ok(iconNames.includes('transition_bottom_in'));
             assert.ok(iconNames.includes('warning_fill'));
