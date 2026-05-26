@@ -128,9 +128,11 @@ versioning_systems:
                 pattern => pattern.name === 'markup.role.icon.elastic'
             )?.match;
 
-            assert.ok(iconPattern);
+            if (!iconPattern) {
+                assert.fail('Expected icon role grammar pattern to exist');
+            }
 
-            const match = '{icon}`magnify_sparkles`'.match(new RegExp(iconPattern!));
+            const match = '{icon}`magnify_sparkles`'.match(new RegExp(iconPattern));
             assert.ok(match);
             assert.strictEqual(match?.[2], 'icon');
             assert.strictEqual(match?.[5], 'magnify_sparkles');
