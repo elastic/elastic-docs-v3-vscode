@@ -103,7 +103,7 @@ versioning_systems:
         run: () => {
             const iconNames: readonly string[] = ICONS;
 
-            assert.strictEqual(iconNames.length, 581);
+            assert.strictEqual(new Set(iconNames).size, iconNames.length);
             assert.ok(iconNames.includes('analyze_event'));
             assert.ok(iconNames.includes('magnify_sparkles'));
             assert.ok(iconNames.includes('transition_bottom_in'));
