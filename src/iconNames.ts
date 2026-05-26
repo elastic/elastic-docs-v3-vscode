@@ -17,6 +17,10 @@
  * under the License.
  */
 
+/**
+ * Canonical icon names supported by the {icon} role, synced from docs-builder.
+ * Update this list when docs-builder adds icons or changes canonical naming.
+ */
 export const ICONS = [
     'accessibility',
     'add_to_dashboard',
