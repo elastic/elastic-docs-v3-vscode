@@ -1,4 +1,7 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ICONS } from '../src/iconNames';
 import { applyMutation, applyMutationChain } from '../src/mutationEngine';
 import { extractStringRecordField, extractVersionSubstitutions, parseYamlObject } from '../src/yaml';
 
@@ -93,6 +96,47 @@ versioning_systems:
                 edot_collector: '1.2.3',
                 'edot_collector.base': '1.0'
             });
+        }
+    },
+    {
+        name: 'icon completions use the synced canonical icon names',
+        run: () => {
+            const iconNames: readonly string[] = ICONS;
+
+            assert.strictEqual(new Set(iconNames).size, iconNames.length);
+            assert.ok(iconNames.includes('analyze_event'));
+            assert.ok(iconNames.includes('line_break'));
+            assert.ok(iconNames.includes('magnify_sparkles'));
+            assert.ok(iconNames.includes('transition_bottom_in'));
+            assert.ok(iconNames.includes('warning_fill'));
+            assert.ok(!iconNames.includes('analyzeEvent'));
+            assert.ok(!iconNames.includes('warningFilled'));
+            assert.ok(!iconNames.includes('pipeBreaks'));
+        }
+    },
+    {
+        name: 'icon syntax grammar matches snake_case icon names',
+        run: () => {
+            const grammarPath = path.resolve(__dirname, '..', '..', 'syntaxes', 'elastic-markdown.tmLanguage.json');
+            const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8')) as {
+                repository: {
+                    'elastic-roles': {
+                        patterns: Array<{ name?: string; match?: string }>;
+                    };
+                };
+            };
+            const iconPattern = grammar.repository['elastic-roles'].patterns.find(
+                pattern => pattern.name === 'markup.role.icon.elastic'
+            )?.match;
+
+            if (!iconPattern) {
+                assert.fail('Expected icon role grammar pattern to exist');
+            }
+
+            const match = '{icon}`magnify_sparkles`'.match(new RegExp(iconPattern));
+            assert.ok(match);
+            assert.strictEqual(match?.[2], 'icon');
+            assert.strictEqual(match?.[5], 'magnify_sparkles');
         }
     }
 ];
